@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "replylayer": {
+      "type": "http",
+      "url": "https://api.replylayer.ai/v1/mcp/oauth"
+    }
+  }
+}

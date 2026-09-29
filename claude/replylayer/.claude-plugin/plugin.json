@@ -1,0 +1,13 @@
+{
+  "name": "replylayer",
+  "displayName": "ReplyLayer",
+  "version": "1.0.0",
+  "description": "Give Claude its own email: read, reply to and send mail from the ReplyLayer mailboxes you choose, with every message screened for unsafe content. Sign in to ReplyLayer when you connect.",
+  "author": {
+    "name": "ReplyLayer"
+  },
+  "homepage": "https://replylayer.ai/docs/mcp",
+  "repository": "https://github.com/replylayer/replylayer-plugins",
+  "license": "MIT",
+  "keywords": ["email", "agents", "transactional"]
+}
