@@ -12,24 +12,24 @@ Claude uses the skills only when your request needs email.
 
 ## Connecting
 
-You sign in to ReplyLayer when you connect. ReplyLayer asks you to choose the mailboxes Claude may use and to approve the connection. Claude can only reach the mailboxes you chose, and it cannot change your account, your keys or a mailbox's approval rules. ReplyLayer emails you each time you approve a new connection.
+You sign in to ReplyLayer when you connect. ReplyLayer asks you to choose the mailboxes Claude may use and to approve the connection. Claude can only reach the mailboxes you chose. It cannot change your account settings, API keys or a mailbox's outbound approval rules, and cannot approve held mail. When you ask, it can add people to your recipient, do-not-contact and inbound sender lists, and delete messages. ReplyLayer emails you each time you approve a new connection.
 
 You need a ReplyLayer account.
 
 ### Claude Code
 
-The ReplyLayer tools in this plugin sign in through claude.ai. In Claude Code, connect with a ReplyLayer agent API key instead, following https://replylayer.ai/docs/mcp. The skills still apply.
+The plugin's ReplyLayer server stays listed in Claude Code but can't sign in there. Connect ReplyLayer with an agent API key instead, following https://replylayer.ai/docs/mcp. The skills still apply.
 
 ## The free-trial recipient rule
 
-On the free trial, an account can send only to people it has a basis for: your own email address, ReplyLayer's simulator addresses, a reply to someone whose message passed sender authentication, a person who confirmed by clicking a link, or a person you vouched for. Any other recipient is refused, and Claude will tell you and offer to send that person a confirmation link.
+On the free trial, an account can send only to people it has a basis for: your own email address, ReplyLayer's simulator addresses, a reply to someone whose message passed sender authentication for its own domain, a person who confirmed by clicking a link, or a person you vouched for. Any other recipient is refused, and Claude will tell you and offer to send that person a confirmation link.
 
 ## What this plugin connects to and where data goes
 
 - The plugin itself connects only to ReplyLayer's MCP server at `https://api.replylayer.ai/v1/mcp/oauth`. It calls no other service.
 - Email you ask Claude to send is delivered by ReplyLayer to its recipients through ReplyLayer's mail-delivery providers, as the Privacy Policy describes.
 - ReplyLayer stores your account's mail and related records under the Privacy Policy.
-- The plugin collects no chat or conversation data. It holds no secrets and stores nothing itself.
+- Only what Claude passes to the tools (message text, recipients, search terms) goes to ReplyLayer; the plugin sends none of the rest of your conversation. Mail is screened for unsafe content as the Privacy Policy describes. The plugin holds no secrets and stores nothing itself.
 - ReplyLayer is not for users under 18.
 
 ## Publisher and links

@@ -31,17 +31,18 @@ const SKILLS_TOKEN_BUDGET = 5000; // chars / 4, all skills together
 const README_MIN_WORDS = 40;
 
 // Purchase wording must never appear in a skill, README or manifest description.
-export const PURCHASE_RE = /pay-as-you-go|\$\d|upgrade|Starter|Pro plan|billing|credit/i;
+export const PURCHASE_RE = /pay-as-you-go|\$\d|upgrade|Starter|Pro plan|billing|credit|purchase|buy|subscription|pricing|paid plan|top-up/i;
 // Skills use neutral wording ("the model" or "you"), one text for every vendor.
 const VENDOR_WORD_RE = /\bclaude\b/i;
 
 const KEY_SHAPED = /rly_live_[0-9a-z]{16}\.[A-Za-z0-9_-]{43}/;
 
 // Zero-width, bidi-control and other invisible characters that can hide text.
-const INVISIBLE_RE = /[­͏؜ᅟᅠ឴឵᠋-᠏​-‏‪-‮⁠-⁯ㅤ︀-️﻿ﾠ\u{E0000}-\u{E007F}]/u;
+const INVISIBLE_RE = /[\u00AD\u034F\u061C\u115F\u1160\u17B4\u17B5\u180B-\u180F\u200B-\u200F\u202A-\u202E\u2060-\u206F\u3164\uFE00-\uFE0F\uFEFF\uFFA0\u{E0000}-\u{E007F}]/u;
 
 // Tool names registered on the hosted server (packages/mcp/src/tools/index.ts, REGISTERED_TOOL_NAMES).
-const REGISTERED_TOOLS = new Set([
+// scripts/tool-names.json is the checked-in snapshot; a test fails if the two differ.
+export const REGISTERED_TOOLS = new Set([
   'send_email', 'list_messages', 'read_message', 'get_thread', 'list_threads', 'reply_to_message',
   'wait_for_message', 'list_mailboxes', 'list_recipients', 'add_recipient', 'list_suppressions',
   'add_suppression', 'list_allowlist', 'list_allowlist_blocked_attempts', 'create_draft', 'list_drafts',
@@ -54,8 +55,16 @@ const REGISTERED_TOOLS = new Set([
   'add_inbound_allowlist_bulk', 'add_suppressions_bulk', 'add_inbound_blocklist_bulk', 'remove_suppression',
 ]);
 // Left out of the sign-in (agent) grant at /v1/mcp/oauth (AGENT_UNAVAILABLE_TOOL_NAMES): never reference these.
-const HIDDEN_TOOLS = new Set(['approve_review', 'deny_review', 'get_account_usage', 'remove_suppression']);
-const TOOL_VERB_RE = /^(send|list|read|get|add|release|block|report|delete|mark|star|wait|reply|create|update|approve|deny|remove)(_[a-z]+)+$/;
+export const HIDDEN_TOOLS = new Set(['approve_review', 'deny_review', 'get_account_usage', 'remove_suppression']);
+const TOOL_VERB_RE = /^(send|list|read|get|add|release|block|report|delete|mark|star|unstar|wait|reply|create|update|approve|deny|remove|search|forward|move|archive)(_[a-z0-9]+)+$/;
+// A snake_case word anywhere in the text, backticked or not.
+const SNAKE_WORD_RE = /(?<![A-Za-z0-9_])[a-z][a-z0-9]*(?:_[a-z0-9]+)+(?![A-Za-z0-9_])/g;
+
+// Top-level keys the Agent Plugins schemas allow (additionalProperties: false).
+const OPENAI_PLUGIN_KEYS = new Set(['$schema', 'name', 'version', 'description', 'author', 'homepage', 'repository', 'license', 'keywords', 'extensions']);
+const OPENAI_AUTHOR_KEYS = new Set(['name', 'email', 'url']);
+const OPENAI_MCP_KEYS = new Set(['$schema', 'mcpServers']);
+const CLAUDE_MCP_KEYS = new Set(['mcpServers']);
 
 const JUNK_NAMES = new Set(['.DS_Store', 'Thumbs.db', 'ehthumbs.db', 'desktop.ini']);
 const IMAGE_EXT = /\.(png|jpe?g|gif|webp)$/i;
@@ -168,15 +177,17 @@ export function validate(root, { mcpUrl = PRODUCTION_MCP_URL, runClaude = false 
       if (!/^https:\/\//.test(claudePlugin.homepage ?? '')) fail('manifest-claude', `${where}: homepage must be an https URL`);
       if (!/^https:\/\//.test(claudePlugin.repository ?? '')) fail('manifest-claude', `${where}: repository must be an https URL`);
       if (claudePlugin.license !== 'MIT') fail('manifest-claude', `${where}: license must be "MIT"`);
+      if (Array.isArray(claudePlugin.keywords)) scanText.push([`${where} keywords`, claudePlugin.keywords.join(' ')]);
       if (!Array.isArray(claudePlugin.keywords) || claudePlugin.keywords.length === 0 || !claudePlugin.keywords.every(nonEmpty)) fail('manifest-claude', `${where}: keywords must be a non-empty array of strings`);
     }
   }
 
   // ---- MCP configs (Claude .mcp.json, OpenAI mcp.json) ---------------------
-  const checkMcp = (rel, expectedType, expectedSchema, rule) => {
+  const checkMcp = (rel, expectedType, expectedSchema, rule, allowedTop) => {
     const cfg = readJson(rel, rule);
     if (!cfg) return;
     if (!isObj(cfg) || !isObj(cfg.mcpServers)) { fail(rule, `${rel}: needs an mcpServers object`); return; }
+    for (const k of Object.keys(cfg)) if (!allowedTop.has(k)) fail(rule, `${rel}: unexpected top-level key "${k}" (allowed: ${[...allowedTop].join(', ')})`);
     if (expectedSchema && cfg.$schema !== expectedSchema) fail(rule, `${rel}: $schema must be ${expectedSchema}`);
     const raw = read(rel);
     if (/"headers"|"userConfig"|\$\{/.test(raw)) fail('mcp-forbidden', `${rel}: must not contain headers, userConfig or \${...} (sign-in only, no secrets)`);
@@ -190,8 +201,8 @@ export function validate(root, { mcpUrl = PRODUCTION_MCP_URL, runClaude = false 
       for (const k of Object.keys(server)) if (!['type', 'url'].includes(k)) fail('mcp-forbidden', `${rel}: server "${name}" has unexpected key "${k}"`);
     }
   };
-  checkMcp(`${CLAUDE_PKG}/.mcp.json`, 'http', null, 'mcp-claude');
-  checkMcp(`${OPENAI_PKG}/mcp.json`, 'streamable-http', MCP_SCHEMA, 'mcp-openai');
+  checkMcp(`${CLAUDE_PKG}/.mcp.json`, 'http', null, 'mcp-claude', CLAUDE_MCP_KEYS);
+  checkMcp(`${OPENAI_PKG}/mcp.json`, 'streamable-http', MCP_SCHEMA, 'mcp-openai', OPENAI_MCP_KEYS);
 
   // ---- OpenAI manifest ----------------------------------------------------
   const oaPlugin = readJson(`${OPENAI_PKG}/plugin.json`, 'manifest-openai');
@@ -199,6 +210,9 @@ export function validate(root, { mcpUrl = PRODUCTION_MCP_URL, runClaude = false 
     const where = `${OPENAI_PKG}/plugin.json`;
     if (!isObj(oaPlugin)) fail('manifest-openai', `${where}: must be an object`);
     else {
+      for (const k of Object.keys(oaPlugin)) if (!OPENAI_PLUGIN_KEYS.has(k)) fail('manifest-openai', `${where}: unexpected top-level key "${k}" (allowed: ${[...OPENAI_PLUGIN_KEYS].join(', ')})`);
+      if (isObj(oaPlugin.author)) for (const k of Object.keys(oaPlugin.author)) if (!OPENAI_AUTHOR_KEYS.has(k)) fail('manifest-openai', `${where}: unexpected author key "${k}"`);
+      if (Array.isArray(oaPlugin.keywords)) scanText.push([`${where} keywords`, oaPlugin.keywords.join(' ')]);
       if (oaPlugin.$schema !== PLUGIN_SCHEMA) fail('manifest-openai', `${where}: $schema must be ${PLUGIN_SCHEMA}`);
       if (oaPlugin.name !== 'replylayer') fail('manifest-openai', `${where}: name must be "replylayer"`);
       if (!SEMVER.test(oaPlugin.version ?? '')) fail('manifest-openai', `${where}: version must be MAJOR.MINOR.PATCH`);
@@ -256,10 +270,11 @@ export function validate(root, { mcpUrl = PRODUCTION_MCP_URL, runClaude = false 
     if (/https?:\/\//i.test(text)) fail('skill-url', `${rel}: skills must not contain URLs (never pull instructions from links)`);
     if (/<!--/.test(text)) fail('hidden-content', `${rel}: HTML comments can hide instructions`);
     if (INVISIBLE_RE.test(text)) fail('hidden-content', `${rel}: contains invisible or bidirectional-control characters`);
-    if (/data:[a-z]+\/[a-z0-9.+-]+;base64,|[A-Za-z0-9+/=]{80,}/.test(text)) fail('hidden-content', `${rel}: contains an encoded blob`);
-    for (const [, tok] of text.matchAll(/`([a-z][a-z0-9_]*)`/g)) {
-      if (HIDDEN_TOOLS.has(tok)) fail('hidden-tool', `${rel}: references \`${tok}\`, which is not available on the sign-in connection`);
-      else if (TOOL_VERB_RE.test(tok) && !REGISTERED_TOOLS.has(tok)) fail('unknown-tool', `${rel}: \`${tok}\` is not a ReplyLayer tool`);
+    if (/data:[a-z]+\/[a-z0-9.+-]+[;,]|[A-Za-z0-9+/=]{80,}/i.test(text)) fail('hidden-content', `${rel}: contains a data: URI or an encoded blob`);
+    // Backticked or not, frontmatter included: any snake_case word shaped like a tool name.
+    for (const tok of new Set(text.match(SNAKE_WORD_RE) ?? [])) {
+      if (HIDDEN_TOOLS.has(tok)) fail('hidden-tool', `${rel}: references ${tok}, which is not available on the sign-in connection`);
+      else if (TOOL_VERB_RE.test(tok) && !REGISTERED_TOOLS.has(tok)) fail('unknown-tool', `${rel}: ${tok} is not a ReplyLayer tool`);
     }
   }
   if (tokenTotal > SKILLS_TOKEN_BUDGET) fail('skills-tokens', `skills/: about ${tokenTotal} tokens, keep under ${SKILLS_TOKEN_BUDGET}`);

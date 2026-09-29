@@ -14,14 +14,14 @@ Never ask the user for an API key, token, or password in chat. Never repeat one,
 
 An authentication error is any of: `UNAUTHORIZED`, `API_KEY_REVOKED`, a `401`, or a `RATE_LIMITED` whose `details.reason` is `failed_authentication`. What to do depends on how ReplyLayer was connected. You cannot see which, so both cases are stated:
 
-- If you connected ReplyLayer by signing in (the ReplyLayer connector on the app's Connectors screen) and a tool fails with an authentication error, the connection was revoked or expired. Ask the user to reconnect ReplyLayer from the Connectors screen, then stop.
+- If you connected ReplyLayer by signing in (the ReplyLayer connector set up in the app's connection settings) and a tool fails with an authentication error, the connection was revoked or expired. Ask the user to reconnect ReplyLayer from the app's connection settings, then stop.
 - If you connected ReplyLayer in a coding tool with an agent API key and a tool fails with `UNAUTHORIZED`, `API_KEY_REVOKED`, or a `RATE_LIMITED` whose `details.reason` is `failed_authentication`, the key is wrong or revoked. Ask the user to create a new agent key in the ReplyLayer dashboard and update their configuration, then stop. Never ask for the key in chat or repeat it.
 
 In neither case retry, and do not wait and retry.
 
 ## 2. Start with `list_mailboxes`
 
-Send only from a mailbox that `list_mailboxes` returns, and refer to it by name. This connection reaches only the mailboxes the user chose when they approved it:
+Send only from a mailbox that `list_mailboxes` returns, and refer to it by the name or id `list_mailboxes` returns (the inbound-firewall tools, `list_inbound_allowlist`, `add_inbound_allowlist_entry` and `list_inbound_firewall_blocked_attempts`, need the id). This connection reaches only the mailboxes the user chose when they approved it:
 
 - A detail read of any other mailbox or message returns `404 NOT_FOUND`.
 - A write to an unapproved mailbox returns `403 MAILBOX_ACCESS_DENIED`, and a collection read of one returns `403`.
@@ -36,6 +36,7 @@ Pass `idempotency_key` on every `send_email` and `reply_to_message`.
 - Pick one stable key per send intent and reuse that exact key on every retry. ReplyLayer replays the first result instead of sending twice.
 - Pass the literal key in every call. If your host masks fields ending in `_key`, the call is refused with `IDEMPOTENCY_KEY_INVALID`; retry from a new session with the full literal request.
 - On `IDEMPOTENT_REQUEST_IN_FLIGHT`, retry the same key after `details.retry_after`.
+- On `IDEMPOTENCY_KEY_BOUND_TO_DRAFT`, that key already belongs to a draft and cannot be used for an immediate send. Use a distinct key for the send.
 - On `IDEMPOTENT_REQUEST_NOT_PROVEN_SENT`, stop and report it for a human to investigate. It was not re-sent, and a new key could duplicate it, so never mint one.
 
 ## 4. Never pass `attachments`
@@ -48,8 +49,8 @@ ReplyLayer's hosted server cannot read files on the user's computer. It refuses 
 
 - `sent` means ReplyLayer accepted the message. It is not proof that a person received it.
 - `held_for_review` means the account owner must approve or release it in the ReplyLayer dashboard. Tell the user it is waiting, give them `hold_context.review_url` (and `hold_context.review_expires_at`, the deadline) when present, and stop. Do not send it again and do not rewrite the body to get past the hold. This connection cannot approve holds.
-- `held_infrastructure` was never judged on content. Retry later with the same `idempotency_key`, and do not rewrite the body.
-- `blocked` is final. Stop and report it. Do not rewrite the body to get past it.
+- `held_infrastructure` was never judged on content; a temporary ReplyLayer fault held it. Tell the user. A retry with the same `idempotency_key` returns this same result. Do not resend with a new key or rewrite the body unless the user asks.
+- `blocked` is final. Stop and report it. Do not resend it unchanged. Revise it only if the user asks, to address `scan.findings`, never to disguise it.
 - Any status you do not recognize is a hold, never a send.
 
 If `email_effect` is missing, fall back to the top-level `status`: `sent`, `quarantined`, `pending_review` or `blocked`. `scan.findings` and `hold_context.agent_instructions` say why a message was held; pass that reason to the user rather than guessing.
@@ -62,7 +63,7 @@ On `RECIPIENT_NOT_ON_ALLOWLIST` or `RECIPIENT_AGENT_CONTAINED`, stop and tell th
 
 - Do not call `add_inbound_allowlist_entry` or `add_inbound_allowlist_bulk`. They control which senders may reach the mailbox, not who it may send to.
 - No tool here adds an outbound allowlist entry. Only the user can allow the address.
-- `add_recipient` belongs to the free-trial recipient rule in the `replylayer-recipients` skill. It does not clear these two codes.
+- `add_recipient` belongs to the free-trial (Sandbox) recipient rule in the `replylayer-recipients` skill. Offer it to the user first and never call it on your own; it does not clear these two codes.
 
 ## 7. Other refusals
 

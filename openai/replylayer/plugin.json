@@ -2,7 +2,7 @@
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "replylayer",
   "version": "1.0.0",
-  "description": "Give the model its own email: read, reply to and send mail from the ReplyLayer mailboxes you choose, with every message screened for unsafe content. Sign in to ReplyLayer when you connect.",
+  "description": "Read, reply to and send email from the ReplyLayer mailboxes you choose, with every message screened for unsafe content.",
   "author": {
     "name": "ReplyLayer"
   },

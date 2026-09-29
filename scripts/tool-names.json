@@ -1,0 +1,16 @@
+{
+  "_comment": "Snapshot of the hosted MCP tool names, checked in so validate.mjs never needs the network. Refresh from the ReplyLayer monorepo: copy REGISTERED_TOOL_NAMES and AGENT_UNAVAILABLE_TOOL_NAMES from packages/mcp/src/tools/index.ts on origin/main (git show origin/main:packages/mcp/src/tools/index.ts), then update REGISTERED_TOOLS and HIDDEN_TOOLS in scripts/validate.mjs to match. A test fails if the two differ.",
+  "registered": [
+    "send_email", "list_messages", "read_message", "get_thread", "list_threads", "reply_to_message",
+    "wait_for_message", "list_mailboxes", "list_recipients", "add_recipient", "list_suppressions",
+    "add_suppression", "list_allowlist", "list_allowlist_blocked_attempts", "create_draft", "list_drafts",
+    "get_draft", "delete_draft", "update_draft", "send_draft", "list_inbound_blocklist",
+    "add_inbound_blocklist", "list_inbound_allowlist", "add_inbound_allowlist_entry",
+    "list_inbound_firewall_blocked_attempts", "release_firewall_blocked_message", "mark_message_read",
+    "mark_thread_read", "approve_review", "deny_review", "release_quarantined_message",
+    "block_quarantined_message", "report_and_block", "delete_message", "get_account_usage",
+    "get_agent_quota", "get_link_scanning_status", "star_message", "star_thread", "get_attachment_preview",
+    "add_inbound_allowlist_bulk", "add_suppressions_bulk", "add_inbound_blocklist_bulk", "remove_suppression"
+  ],
+  "agentUnavailable": ["approve_review", "deny_review", "get_account_usage", "remove_suppression"]
+}

@@ -8,26 +8,33 @@ license: MIT
 
 Use these tools only when the user's request needs them. Two separate things are easy to confuse: who the account may email (outbound), and who may email the mailbox (inbound). The tools for one never affect the other.
 
-## Who the account can email on the free trial
+## Who the account can email on the free trial (Sandbox)
 
-On the free trial, an account can send only to recipients it has a basis for:
+On the free trial (Sandbox), an account can send only to recipients it has a basis for:
 
 - the account's own email address;
 - ReplyLayer's simulator scenario addresses;
-- a reply, or a continuation of a thread, to someone whose inbound message passed sender authentication with a matching domain;
+- a reply, or a continuation of a thread, to someone whose inbound message passed sender authentication for its own domain;
 - a person who confirmed by clicking a link;
 - a person the user vouched for.
 
-A reply to a sender who authenticated but whose domain did not match is refused, so that sender needs one of the other routes. Any other recipient is refused with `SANDBOX_RECIPIENT_NOT_VERIFIED`. `list_recipients` shows who is confirmed. On the free trial, the four simulator addresses are for testing: mail to them reaches no one.
+A reply to a sender whose message authenticated, but not for its own domain, is refused, so that sender needs one of the other routes. Any other recipient is refused with `SANDBOX_RECIPIENT_NOT_VERIFIED`. `list_recipients` shows who is confirmed. The four simulator addresses are test addresses on any account: mail to them reaches no one.
 
 ## Adding a recipient
 
 When the user asks you to email someone who is not sendable yet:
 
-1. Call `add_recipient` with just the `email`. ReplyLayer emails that person a confirmation link. Tell the user this happens, because it contacts a third party. You can send to them once they click it, so tell the user to ask them to.
-2. Use `attest: true` only when the user has told you they know the person and want them added right now. It sends no email and makes the person sendable at once, but it spends one of the account's limited trial attestations, which are never refunded. Say so before you do it. If someone added this way reports the address as spam, the account loses the ability to add people without confirmation, and a second report suspends the account. Never attest on your own judgment.
+1. Offer to send the person a confirmation link, explaining that ReplyLayer will email them and that the email counts toward the daily send limit. Call `add_recipient` with just the `email` only after the user agrees. You can send to them once they click the link, so tell the user to ask them to.
+2. Use `attest: true` only when the user has told you they know the person and want them added right now. It sends no email and makes the person sendable at once, but it spends one of the account's limited trial attestations, which are never refunded. Say so before you do it. If someone added this way reports your email as spam, everyone added with `attest` must then confirm by link before they can be emailed again, and the account can no longer add people without confirmation; a report from a second person suspends the account. Never attest on your own judgment.
 
-If `add_recipient` is refused, the connection or mailbox is not allowed to add people. Ask the user to add the person in the ReplyLayer dashboard.
+If `add_recipient` is refused, branch on the code:
+
+- `INSUFFICIENT_SCOPE` or `RECIPIENT_WRITE_AGENT_CONTAINED`: this connection cannot add people. Ask the user to add the person in the ReplyLayer dashboard.
+- `TIER_LIMIT`: the account cannot add more people this way. Tell the user.
+- `RATE_LIMITED`: wait for `details.retry_after`, and do not loop.
+- `CONFLICT`: the person is already on the list. Check their status with `list_recipients`.
+- `FORBIDDEN`: the account does not use a recipient list.
+- `RECIPIENT_WRITE_UNAVAILABLE`: try once more later.
 
 ## Accounts with an approved-recipients list
 
@@ -42,4 +49,4 @@ These lists control what reaches the mailbox. They do not approve anyone as a re
 
 ## Do-not-contact list
 
-`list_suppressions` shows addresses ReplyLayer will not send to, including hard bounces and spam complaints. `add_suppression` (or `add_suppressions_bulk`) adds an address or `@domain` when the user asks. There is no tool to remove an entry; tell the user that removing one is done in the ReplyLayer dashboard. A send to a suppressed address fails with `RECIPIENT_SUPPRESSED`: tell the user and do not retry.
+`list_suppressions` shows addresses ReplyLayer will not send to, including hard bounces and spam complaints. `add_suppression` (or `add_suppressions_bulk`) adds an address or `@domain` when the user asks. There is no tool to remove an entry, and some do-not-contact entries can't be removed at all. Tell the user, and do not try to work around it. A send to a suppressed address fails with `RECIPIENT_SUPPRESSED`: tell the user and do not retry.
