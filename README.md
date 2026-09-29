@@ -21,8 +21,6 @@ node scripts/validate.mjs             # structure, manifest and content checks
 node --test scripts/*.test.mjs        # validator tests
 ```
 
-The expected MCP URL defaults to production (`https://api.replylayer.ai/v1/mcp/oauth`). To validate a tree that points elsewhere, set `REPLYLAYER_EXPECTED_MCP_URL` or pass `--url <url>`.
-
 Every change to a submitted folder raises its `version` (`claude/replylayer/.claude-plugin/plugin.json` and `openai/replylayer/plugin.json`, kept equal).
 
 ## License
