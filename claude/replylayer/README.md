@@ -18,7 +18,7 @@ You need a ReplyLayer account.
 
 ### Claude Code
 
-The plugin's ReplyLayer server stays listed in Claude Code but can't sign in there. Connect ReplyLayer with an agent API key instead, following https://replylayer.ai/docs/mcp. The skills still apply.
+In Claude Code, this plugin's three skills load, but its ReplyLayer server shows as needing authentication and can't sign in there: signing in opens a ReplyLayer page titled "This app can’t connect". Connect ReplyLayer in Claude Code with an agent API key instead, following https://replylayer.ai/docs/mcp. The skills still apply.
 
 ## The free-trial recipient rule
 
