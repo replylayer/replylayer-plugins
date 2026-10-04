@@ -1,0 +1,56 @@
+name: cursor-reindex-reminder
+
+# Runs only AFTER a merge to main (a pull request never triggers it). Publisher Terms section 2.1 requires the
+# publisher to request a re-index after modifying a listed plugin, and nothing in this repository can do that,
+# so this opens one issue per merge as a reminder. It writes nothing else: no commit, no tag, no setting.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cursor/**'
+      - '.cursor-plugin/**'
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      # No token in this step: it reads repository content only. The path must be a regular file, and the
+      # file is parsed as data (JSON.parse), never loaded as code.
+      - name: Read the plugin version
+        id: version
+        run: |
+          set -euo pipefail
+          version="$(node --input-type=module -e "
+            import fs from 'node:fs';
+            const p = 'cursor/replylayer/.cursor-plugin/plugin.json';
+            if (!fs.lstatSync(p).isFile()) throw new Error(p + ' is not a regular file');
+            process.stdout.write(String(JSON.parse(fs.readFileSync(p, 'utf8')).version));
+          ")"
+          case "$version" in
+            *[!0-9.]*|'') version=unknown ;;
+          esac
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+      - name: Open the reminder issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          short="${SHA:0:7}"
+          {
+            echo "The Cursor plugin folder changed in commit ${SHA} (plugin version ${VERSION})."
+            echo
+            echo "Cursor Publisher Terms section 2.1 requires a re-index request after modifying a listed plugin, and Cursor serves what it last indexed. If the plugin is listed, request a re-index and then read back the version Cursor serves. If the plugin is not yet listed, close this issue."
+          } > "$RUNNER_TEMP/body.md"
+          gh issue create \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Cursor plugin ${VERSION} at ${short}: request a re-index if listed" \
+            --body-file "$RUNNER_TEMP/body.md"

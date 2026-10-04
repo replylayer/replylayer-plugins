@@ -14,9 +14,25 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
+          # The version-bump check diffs against the pull request's base, which needs full history (a depth-1 checkout fails closed).
+          fetch-depth: 0
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
       - run: node scripts/sync-skills.mjs --check
       - run: node scripts/validate.mjs
       - run: node --test scripts/*.test.mjs
+      # Cursor's own validator, pinned to one commit of cursor/plugin-template and refused unless the file's
+      # SHA-256 matches. It runs alongside this repository's checks, never in place of them.
+      - name: Cursor official validator (pinned)
+        run: |
+          set -euo pipefail
+          url=https://raw.githubusercontent.com/cursor/plugin-template/46216072ac5750f782f95bb325b4d12b7c3ae9c9/scripts/validate-template.mjs
+          curl --fail --silent --show-error --location "$url" --output "$RUNNER_TEMP/validate-template.mjs"
+          echo "826f55f546ce59500a6e3d7d32a15d90f3373cecc3b41486e75ae28b60647a4a  $RUNNER_TEMP/validate-template.mjs" | sha256sum --check -
+          node "$RUNNER_TEMP/validate-template.mjs"
+      - name: Cursor package version bump
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: node scripts/check-cursor-version-bump.mjs "$BASE_SHA"

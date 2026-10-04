@@ -1,0 +1,31 @@
+name: cursor-template-canary
+
+# Runs the CURRENT main of Cursor's validate-template.mjs against this repository, weekly. It is deliberately
+# unpinned: its job is to notice that Cursor changed a rule before a submission or a re-index trips on it. It is
+# never a pull-request check (the pinned copy in validate.yml is). The job has a read-only token, no secrets and
+# no write path; a failure reaches the owner through GitHub's scheduled-workflow failure notification.
+on:
+  schedule:
+    - cron: '41 4 * * 3'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: Cursor official validator (template main, unpinned)
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            https://raw.githubusercontent.com/cursor/plugin-template/main/scripts/validate-template.mjs \
+            --output "$RUNNER_TEMP/validate-template.mjs"
+          node "$RUNNER_TEMP/validate-template.mjs"

@@ -1,0 +1,26 @@
+{
+  "name": "replylayer",
+  "description": "Email for AI agents: send, reply, and read security-scanned transactional email from a ReplyLayer mailbox. Add it from the Plugins screen and paste an agent API key into the setup field; never paste the key into chat.",
+  "version": "0.1.0",
+  "author": { "name": "ReplyLayer" },
+  "homepage": "https://replylayer.ai/docs/mcp",
+  "repository": "https://github.com/replylayer/replylayer-plugins",
+  "license": "MIT",
+  "keywords": ["email", "mcp", "agents", "transactional"],
+  "logo": "assets/logo.svg",
+  "variables": {
+    "type": "object",
+    "properties": {
+      "REPLYLAYER_API_KEY": {
+        "type": "string",
+        "title": "ReplyLayer agent API key",
+        "description": "An agent key (rly_live_…) bound to the one mailbox this bot may use. Create it in the ReplyLayer dashboard under API keys. Paste the key only, without the word Bearer.",
+        "format": "password",
+        "writeOnly": true,
+        "minLength": 69,
+        "maxLength": 69
+      }
+    },
+    "required": ["REPLYLAYER_API_KEY"]
+  }
+}
