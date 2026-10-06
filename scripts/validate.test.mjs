@@ -1149,6 +1149,33 @@ test('mentionLines: format characters and variation selectors inside the tool na
   }
 });
 
+test('cursor-root-allowlist: the shipped tree passes and the allowed top-level set is exact', () => {
+  assert.deepEqual(validate(REAL).filter((e) => e.startsWith('[cursor-root-allowlist]')), []);
+  const tracked = spawnSync('git', ['-C', REAL, 'ls-tree', '--name-only', 'HEAD'], { encoding: 'utf8' });
+  if (tracked.status === 0) assert.deepEqual(tracked.stdout.trim().split('\n').sort(), ['.cursor-plugin', '.github', 'LICENSE', 'README.md', 'claude', 'cursor', 'openai', 'scripts', 'skills'].sort());
+});
+
+test('cursor-root-allowlist: agent configuration cannot be added at the repository root', () => {
+  const put = (rel, body = 'x\n') => (d) => { mkdirSync(dirname(join(d, rel)), { recursive: true }); writeFileSync(join(d, rel), body); };
+  const probes = [
+    ['hooks/hooks.json', 'hooks'], ['rules/x.mdc', 'rules'], ['agents/a.md', 'agents'], ['commands/c.md', 'commands'],
+    ['AGENTS.md', 'AGENTS.md'], ['CLAUDE.md', 'CLAUDE.md'], ['.cursorrules', '.cursorrules'], ['.mcp.json', '.mcp.json'],
+    ['.windsurfrules', '.windsurfrules'], ['docs/readme.md', 'docs'], ['package.json', 'package.json'],
+  ];
+  for (const [rel, top] of probes) assertFailsWith('cursor-root-allowlist', `${top}: not an allowed top-level entry`, fixture(put(rel)));
+  assertFailsWith('cursor-root-allowlist', 'LICENSE.md: not an allowed top-level entry', fixture(put('LICENSE.md')));
+});
+
+test('cursor-root-allowlist: .github holds only workflows and dependabot.yml', () => {
+  const put = (rel) => (d) => { mkdirSync(dirname(join(d, rel)), { recursive: true }); writeFileSync(join(d, rel), 'x\n'); };
+  for (const rel of ['copilot-instructions.md', 'CODEOWNERS', 'instructions/a.instructions.md', 'actions/x/action.yml']) {
+    assertFailsWith('cursor-root-allowlist', `.github/${rel.split('/')[0]}: .github/ may hold only workflows and dependabot.yml`, fixture(put(`.github/${rel}`)));
+  }
+  assert.deepEqual(validate(REAL).filter((e) => e.includes('.github/')), []);
+  // A new workflow file is allowed (the workflows folder itself is the allowed entry).
+  assert.deepEqual(fixture(put('.github/workflows/extra.yml')).filter((e) => e.startsWith('[cursor-root-allowlist]')), []);
+});
+
 test('validate.mjs CLI exits non-zero on a broken tree and honours --url', () => {
   const script = join(REAL, 'scripts/validate.mjs');
   const ok = spawnSync(process.execPath, [script, '--no-claude'], { cwd: REAL, encoding: 'utf8' });

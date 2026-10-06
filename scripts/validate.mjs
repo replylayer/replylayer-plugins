@@ -44,6 +44,11 @@ const MANIFEST_ALLOWLIST = [
   'claude/replylayer/.claude-plugin/plugin.json', 'claude/replylayer/.mcp.json',
   'openai/replylayer/plugin.json', 'openai/replylayer/mcp.json',
 ];
+// The repository's top-level entries (the working tree's own .git aside) and the only things under .github/. Cursor
+// reads agent configuration from the repository root (hooks, rules, agents, commands, AGENTS.md, .cursorrules,
+// .mcp.json ...), so a new top-level entry must be added to this list in the same PR, where review sees it.
+const ROOT_ALLOWLIST = ['.cursor-plugin', '.github', 'LICENSE', 'README.md', 'claude', 'cursor', 'openai', 'scripts', 'skills'];
+const GITHUB_ALLOWLIST = ['workflows', 'dependabot.yml'];
 const CURSOR_SKILL_FIELDS = new Set(['name', 'description']);
 // The skill's add_recipient ban is pinned (option A): rule 1 and the two prohibition sentences must appear
 // verbatim, and exactly two lines may mention add_recipient or attest. Changing any of it needs an edit to
@@ -644,8 +649,8 @@ export function validate(root, { mcpUrl = PRODUCTION_MCP_URL, runClaude = false 
   }
 
   // ---- Cursor package (effective configuration, not file shape) -------------
-  // The package signs in with an agent API key, so the rules that are specific to the sign-in (OAuth)
-  // connection above do not apply to it: the OAuth URL, `type`/`$schema` MCP shapes, the no-`headers`
+  // The package uses an agent API key entered in the plugin's setup field (not a sign-in), so the rules that are
+  // specific to the sign-in (OAuth) connection above do not apply to it: the OAuth URL, `type`/`$schema` MCP shapes, the no-`headers`
   // rule and the Claude/OpenAI manifest rules. It is outside the skill sync: its skill is hand-maintained.
   // Every check below is independent of which of a marketplace entry and a manifest Cursor lets win for a field.
   const cursorDir = (rel) => `${CURSOR_PKG}/${rel}`;
@@ -743,6 +748,8 @@ export function validate(root, { mcpUrl = PRODUCTION_MCP_URL, runClaude = false 
   // not settle what happens when other manifests coexist, so no other manifest-shaped file may exist.
   const MANIFEST_NAME_RE = /^(plugin\.json|mcp\.json|\.mcp\.json|marketplace.*\.json)$/i;
   for (const { rel, name, isDir, isSymlink } of walkAll(root, '', ['.git'])) {
+    if (!rel.includes('/') && !ROOT_ALLOWLIST.includes(rel)) fail('cursor-root-allowlist', `${rel}: not an allowed top-level entry (allowed: ${ROOT_ALLOWLIST.join(', ')}); add it to ROOT_ALLOWLIST in scripts/validate.mjs in the same PR if it is deliberate`);
+    if (rel.startsWith('.github/') && rel.split('/').length === 2 && !GITHUB_ALLOWLIST.includes(name)) fail('cursor-root-allowlist', `${rel}: .github/ may hold only ${GITHUB_ALLOWLIST.join(' and ')}`);
     if (name.toLowerCase() === '.gitmodules') fail('cursor-outside-package', `${rel}: .gitmodules is not allowed (a submodule would pull in code this validator never sees)`);
     if (isDir && name.toLowerCase() === '.cursor') fail('cursor-outside-package', `${rel}: .cursor directories are not allowed`);
     if (!isDir && MANIFEST_NAME_RE.test(name) && !MANIFEST_ALLOWLIST.includes(rel)) fail('cursor-outside-package', `${rel}: plugin.json, mcp.json, .mcp.json and marketplace*.json files are allowed only at ${MANIFEST_ALLOWLIST.join(', ')}`);
