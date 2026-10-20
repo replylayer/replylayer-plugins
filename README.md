@@ -2,6 +2,8 @@
 
 Plugin packages for [ReplyLayer](https://replylayer.ai), email for AI agents.
 
+[![ReplyLayer MCP server](https://mcprush.com/badge/replylayer-mcp/card.svg)](https://mcprush.com/to/replylayer-mcp?ref=badge)
+
 | Path | What it is |
 |---|---|
 | `skills/` | The one source for the ReplyLayer skill text |
